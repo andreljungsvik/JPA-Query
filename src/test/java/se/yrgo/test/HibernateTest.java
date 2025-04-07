@@ -17,23 +17,97 @@ public class HibernateTest {
         EntityTransaction tx = em.getTransaction();
         tx.begin();
 
-        //2. Hämta alla böcker av en specifik författare
+
+        System.out.println("1. Hämta alla böcker av en specifik författare:");
         TypedQuery<Author> q1 = em.createQuery("select a from Author a left join fetch a.books where a.name = :authorName", Author.class);
         q1.setParameter("authorName", "J.K. Rowling");
         List<Author> authors = q1.getResultList();
 
         if (!authors.isEmpty()) {
             Author author = authors.get(0);
-            System.out.println(author);
+            System.out.println("Författare: " + author.getName());
+            System.out.println("Böcker: " + author.getBooks());
         } else {
             System.out.println("Ingen författare hittades.");
         }
+        System.out.println();
 
+//---------------------------------------------------------------------------------------------------------------------------------------
 
-        //3. Hämta alla läsare( readers) som har läst en viss bok (member of)
-        //4. Hämta författare vars böcker har lästs av minst en läsare (join)
-        //5. Räkna antalet böcker per författare (Aggregation Query)
-        //6. Named Query - Hämta böcker efter genre
+        System.out.println("2. Hämta alla läsare( readers) som har läst en viss bok (member of):");
+        String bookTitle = "1984";
+
+        TypedQuery<Book> bookQuery = em.createQuery("SELECT b FROM Book b WHERE b.title = :title", Book.class);
+        bookQuery.setParameter("title", bookTitle);
+        List<Book> books = bookQuery.getResultList();
+
+        if (books.isEmpty()) {
+            System.out.println("Ingen bok med titeln '" + bookTitle + "' hittades.");
+            return;
+        }
+
+        Book book = books.get(0);
+
+        TypedQuery<Reader> q2 = em.createQuery("select r from Reader r where :book member of r.books", Reader.class);
+        q2.setParameter("book", book);
+        List<Reader> readers = q2.getResultList();
+        if (!readers.isEmpty()) {
+            for (Reader reader : readers) {
+                System.out.println("Läsare för boken, " + bookTitle + ": " + reader.getName());
+            }
+        } else {
+            System.out.println("Ingen läsare för boken");
+        }
+        System.out.println();
+
+//---------------------------------------------------------------------------------------------------------------------------------------
+
+        System.out.println("3. Hämta författare vars böcker har lästs av minst en läsare (join):");
+
+        TypedQuery q3 = em.createQuery("select distinct a.name from Author a join a.books b join b.readers r", String.class);
+        List<String> authorNames = q3.getResultList();
+        if (!authorNames.isEmpty()) {
+            System.out.println("Författare: ");
+            for (String name : authorNames) {
+                System.out.println(name);
+            }
+        } else {
+            System.out.println("Inga författare hittades.");
+        }
+        System.out.println();
+
+//---------------------------------------------------------------------------------------------------------------------------------------
+
+        System.out.println("4. Räkna antalet böcker per författare (Aggregation Query):");
+
+        TypedQuery<Object[]> q4 = em.createQuery("select a.name, count(distinct b) from Author a join a.books b group by a.name", Object[].class);
+        List<Object[]> results2 = q4.getResultList();
+
+        if (!results2.isEmpty()) {
+            for (Object[] result : results2) {
+                String authorName = (String) result[0];
+                Long bookCount = (Long) result[1];
+                System.out.println(authorName + " har " + bookCount + " bok/böcker");
+            }
+        }
+        System.out.println();
+
+//---------------------------------------------------------------------------------------------------------------------------------------
+
+        System.out.println("5. Named Query - Hämta böcker efter genre");
+        String genre = "Fantasy";
+        TypedQuery<Book> q5 = em.createNamedQuery("findBooksByGenre", Book.class);
+        q5.setParameter("genre", genre);
+
+        List<Book> books2 = q5.getResultList();
+        if (!books2.isEmpty()) {
+            System.out.println("Böcker i genren: " + genre);
+            for (Book b : books2) {
+                System.out.println(b.getTitle());
+            }
+        } else {
+            System.out.println("Inga böcker i genren");
+        }
 
         tx.commit();
         em.close();
@@ -67,8 +141,6 @@ public class HibernateTest {
         reader1.getBooks().add(book1);
         reader2.getBooks().add(book2);
         reader2.getBooks().add(book3);
-        reader3.getBooks().add(book4);
-        reader3.getBooks().add(book5);
 
         em.persist(author1);
         em.persist(author2);
